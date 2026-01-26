@@ -46,7 +46,7 @@ jobs:
       - name: Checkout private repo (PAT, main)
         run: |
           rm -rf ./*
-          git clone --branch dev --single-branch \
+          git clone --branch ${{ secrets.PRIVATE_REPO_BRANCH }} --single-branch \
             https://${{ secrets.PRIVATE_REPO_TOKEN }}@${{ secrets.PRIVATE_REPO }} .
 
       - name: Set up Go
