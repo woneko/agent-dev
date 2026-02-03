@@ -1,17 +1,14 @@
 name: Build + Release
 
 on:
-  push:
-    tags:
-      - "v*"
-    paths-ignore:
-      - ".github/workflows/main.yml"
-      - ".github/workflows/sync-release.yml"
-      - ".github/workflows/sync.py"
-      - "README.md"
+  repository_dispatch:
+    types: [build-release]
 
 jobs:
   build:
+    name: Build artifacts
+    runs-on: ubuntu-latest
+
     strategy:
       fail-fast: true
       matrix:
@@ -40,34 +37,32 @@ jobs:
           - goos: darwin
             goarch: 386
 
-    name: Build artifacts
-    runs-on: ubuntu-latest
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@v3
         with:
           repository: ${{secrets.PRIVATE_REPO}}
           ref: ${{secrets.PRIVATE_REPO_REF}}
           token: ${{secrets.PRIVATE_REPO_TOKEN}}
+=======
+      - name: Read tag from webhook
+        run: |
+          echo "TAG_FROM_A=${{ github.event.client_payload.tag }}" >> $GITHUB_ENV
+          echo "Using tag: ${{ github.event.client_payload.tag }}"
+
+      - name: Checkout private repo (A repo by tag)
+        run: |
+          rm -rf ./*
+          git clone --branch "$TAG_FROM_A" --single-branch \
+            https://${{ secrets.PRIVATE_REPO_TOKEN }}@${{ secrets.PRIVATE_REPO }} .
+>>>>>>> main
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ^1.25.2
 
-      - name: Build Test
-        if: github.event_name != 'push' || !contains(github.ref, 'refs/tags/')
-        uses: goreleaser/goreleaser-action@v6
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          GOMIPS: ${{ matrix.gomips }}
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: build --single-target --clean --skip=validate --snapshot
-
       - name: Build
-        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
         uses: goreleaser/goreleaser-action@v6
         env:
           GOOS: ${{ matrix.goos }}
@@ -82,36 +77,55 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: zip -jr dist/nezha-agent_${GOOS}_${GOARCH}.zip dist/*/*
+        run: |
+          mkdir -p dist/zips
+          zip -jr dist/zips/nezha-agent_${GOOS}_${GOARCH}.zip dist/*/*
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: nezha-agent_${{ matrix.goos }}_${{ matrix.goarch }}
-          path: |
-            ./dist/nezha-agent_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+          path: dist/zips/*.zip
 
   release:
+    name: Release
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
     needs: build
+<<<<<<< HEAD
     name: Release
 
     permissions:
       contents: write
+=======
+
+    permissions:
+      contents: write
+
+>>>>>>> main
     steps:
+      - name: Read tag from webhook
+        run: echo "TAG_FROM_A=${{ github.event.client_payload.tag }}" >> $GITHUB_ENV
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./assets
 
       - name: Checksum
-        run: sha256sum ./assets/*/*.zip | awk -F" |/" '{print $1, $NF}' > checksums.txt
+        run: |
+          find ./assets -name "*.zip" -exec sha256sum {} \; \
+            | awk -F" |/" '{print $1, $NF}' > checksums.txt
 
-      - name: Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG_FROM_A }}
           files: |
             checksums.txt
+<<<<<<< HEAD
             assets/*/*.zip
           generate_release_notes: false
+=======
+            assets/**/*.zip
+          generate_release_notes: false
+>>>>>>> main
