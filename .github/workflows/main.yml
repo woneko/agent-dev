@@ -76,7 +76,7 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: build --single-target --clean --skip=validate
+          args: build --single-target --clean --skip=validate --snapshot
 
       - name: Archive
         env:
